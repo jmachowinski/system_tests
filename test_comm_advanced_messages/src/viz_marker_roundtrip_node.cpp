@@ -194,7 +194,10 @@ class VizMarkerRoundtripNode : public rclcpp::Node
 {
 public:
   VizMarkerRoundtripNode()
-  : rclcpp::Node("viz_marker_roundtrip_test")
+  : rclcpp::Node("viz_marker_roundtrip_test"),
+    messages_sent_(0),
+    messages_received_(0),
+    total_publish_time_ns_(0)
   {
     message_count_ = this->declare_parameter<int>("message_count", 10000);
     markers_per_message_ = this->declare_parameter<int>("markers_per_message", 500);
@@ -222,6 +225,11 @@ public:
     timer_ = this->create_wall_timer(
       std::chrono::milliseconds(timer_period_ms_),
       std::bind(&VizMarkerRoundtripNode::on_timer, this));
+
+    // Create timer for statistics reporting
+    stats_timer_ = this->create_wall_timer(
+      std::chrono::seconds(1),
+      std::bind(&VizMarkerRoundtripNode::report_stats, this));
 
     RCLCPP_INFO(
       this->get_logger(),
@@ -251,15 +259,36 @@ private:
 
   void on_timer()
   {
+    // Time the publish call
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
     const int seq = publish_index_;
     publisher_->publish(messages_[static_cast<size_t>(publish_index_)]);
     last_sent_seq_ = seq;
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
+    
+    messages_sent_++;
+    total_publish_time_ns_ += duration.count();
 
     publish_index_ = (publish_index_ + 1) % message_count_;
   }
 
+  void report_stats()
+  {
+    double avg_publish_time_ms = messages_sent_ > 0 ? 
+      (static_cast<double>(total_publish_time_ns_) / messages_sent_ / 1e6) : 0.0;
+    
+    RCLCPP_INFO(get_logger(), 
+      "Stats - Sent: %zu, Received: %zu, Avg Publish Time: %.3f ms, Matches: %zu, Mismatches: %zu",
+      messages_sent_, messages_received_, avg_publish_time_ms, match_count_, mismatch_count_);
+  }
+
   void on_recv(const MarkerArray::SharedPtr msg)
   {
+    messages_received_++;
+    
     if (msg->markers.empty()) {
       RCLCPP_ERROR(this->get_logger(), "Received MarkerArray with 0 markers");
       ++mismatch_count_;
@@ -319,6 +348,12 @@ private:
   rclcpp::Publisher<MarkerArray>::SharedPtr publisher_;
   rclcpp::Subscription<MarkerArray>::SharedPtr subscriber_;
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::TimerBase::SharedPtr stats_timer_;
+  
+  // Statistics tracking
+  size_t messages_sent_;
+  size_t messages_received_;
+  uint64_t total_publish_time_ns_;
 };
 
 int main(int argc, char ** argv)
