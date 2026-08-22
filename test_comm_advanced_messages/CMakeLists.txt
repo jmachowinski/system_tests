@@ -14,7 +14,9 @@ endif()
 find_package(ament_cmake REQUIRED)
 
 find_package(benchmark REQUIRED)
+find_package(fastcdr REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(rcl REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_typesupport_fastrtps_c REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -22,17 +24,18 @@ find_package(tf2_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 add_executable(viz_marker_roundtrip_node src/viz_marker_roundtrip_node.cpp)
-ament_target_dependencies(viz_marker_roundtrip_node
-  geometry_msgs
-  rclcpp
-  std_msgs
-  visualization_msgs
+target_link_libraries(viz_marker_roundtrip_node
+  geometry_msgs::geometry_msgs__rosidl_typesupport_cpp
+  rcl::rcl
+  rclcpp::rclcpp
+  std_msgs::std_msgs__rosidl_typesupport_cpp
+  visualization_msgs::visualization_msgs__rosidl_typesupport_cpp
 )
 
 add_executable(viz_marker_relay_node src/viz_marker_relay_node.cpp)
-ament_target_dependencies(viz_marker_relay_node
-  rclcpp
-  visualization_msgs
+target_link_libraries(viz_marker_relay_node
+  rclcpp::rclcpp
+  visualization_msgs::visualization_msgs__rosidl_typesupport_cpp
 )
 
 if(BUILD_TESTING)
@@ -40,12 +43,17 @@ if(BUILD_TESTING)
 
   add_executable(benchmark_serialization test/benchmark_serialization.cpp)
   target_link_libraries(benchmark_serialization benchmark::benchmark)
-  ament_target_dependencies(benchmark_serialization
-    geometry_msgs
-    rosidl_typesupport_fastrtps_c
-    std_msgs
-    tf2_msgs
-    visualization_msgs
+  target_link_libraries(benchmark_serialization
+    fastcdr
+    geometry_msgs::geometry_msgs__rosidl_typesupport_fastrtps_cpp
+    geometry_msgs::geometry_msgs__rosidl_typesupport_fastrtps_c
+    rosidl_typesupport_fastrtps_c::rosidl_typesupport_fastrtps_c
+    std_msgs::std_msgs__rosidl_typesupport_fastrtps_cpp
+    std_msgs::std_msgs__rosidl_typesupport_fastrtps_c
+    tf2_msgs::tf2_msgs__rosidl_typesupport_fastrtps_cpp
+    tf2_msgs::tf2_msgs__rosidl_typesupport_fastrtps_c
+    visualization_msgs::visualization_msgs__rosidl_typesupport_fastrtps_cpp
+    visualization_msgs::visualization_msgs__rosidl_typesupport_fastrtps_c
   )
   install(TARGETS benchmark_serialization DESTINATION lib/${PROJECT_NAME})
 
@@ -54,15 +62,15 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_placeholder test/test_placeholder.cpp)
   ament_add_gtest(test_int16_communication test/test_int16_communication.cpp)
-  ament_target_dependencies(test_int16_communication
-    rclcpp
-    std_msgs
+  target_link_libraries(test_int16_communication
+    rclcpp::rclcpp
+    std_msgs::std_msgs__rosidl_typesupport_cpp
   )
   ament_add_gtest(test_std_msgs_communication test/test_std_msgs_communication.cpp)
-  ament_target_dependencies(test_std_msgs_communication
-    rclcpp
-    std_msgs
-    visualization_msgs
+  target_link_libraries(test_std_msgs_communication
+    rclcpp::rclcpp
+    std_msgs::std_msgs__rosidl_typesupport_cpp
+    visualization_msgs::visualization_msgs__rosidl_typesupport_cpp
   )
 endif()
 

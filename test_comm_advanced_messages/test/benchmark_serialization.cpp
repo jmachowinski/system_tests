@@ -293,6 +293,30 @@ static void BM_Deserialize_MarkerArray_N(benchmark::State & state)
   state.SetLabel(std::to_string(n) + " markers");
 }
 
+static void BM_Deserialize_MarkerArray_N_Cleanup(benchmark::State & state)
+{
+  const auto n = static_cast<size_t>(state.range(0));
+  visualization_msgs::msg::MarkerArray src;
+  src.markers.resize(n, make_msg<visualization_msgs::msg::Marker>());
+  for (size_t i = 0; i < n; ++i) { src.markers[i].id = static_cast<int>(i); }
+  std::vector<char> raw(kBufferSize);
+  eprosima::fastcdr::FastBuffer buffer(raw.data(), raw.size());
+  {
+    eprosima::fastcdr::Cdr cdr(buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+      eprosima::fastcdr::CdrVersion::XCDRv1);
+    vser::cdr_serialize(src, cdr);
+  }
+  for (auto _ : state) {
+    visualization_msgs::msg::MarkerArray dst;
+    eprosima::fastcdr::Cdr cdr(buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+      eprosima::fastcdr::CdrVersion::XCDRv1);
+    vser::cdr_deserialize(cdr, dst);
+    benchmark::DoNotOptimize(dst);
+    benchmark::ClobberMemory();
+  }
+  state.SetLabel(std::to_string(n) + " markers");
+}
+
 BENCHMARK((BM_Serialize<std_msgs::msg::String, ser::cdr_serialize>))
 ->Name("Serialize/String")->MinTime(0.5);
 BENCHMARK((BM_Deserialize<std_msgs::msg::String, ser::cdr_serialize, ser::cdr_deserialize>))
@@ -336,6 +360,8 @@ BENCHMARK(BM_Deserialize_TFMessage)->Name("Deserialize/TFMessage")
 BENCHMARK(BM_Serialize_MarkerArray_N)->Name("Serialize/MarkerArray_N/cpp")
 ->Arg(16)->Arg(100)->Arg(1000)->MinTime(0.5);
 BENCHMARK(BM_Deserialize_MarkerArray_N)->Name("Deserialize/MarkerArray_N/cpp")
+->Arg(16)->Arg(100)->Arg(1000)->MinTime(0.5);
+BENCHMARK(BM_Deserialize_MarkerArray_N_Cleanup)->Name("Deserialize/MarkerArray_N/cpp_cleanup")
 ->Arg(16)->Arg(100)->Arg(1000)->MinTime(0.5);
 
 // ---------------------------------------------------------------------------
@@ -397,9 +423,43 @@ static void BM_Deserialize_MarkerArray_N_C(benchmark::State & state)
   state.SetLabel(std::to_string(n) + " markers");
 }
 
+static void BM_Deserialize_MarkerArray_N_C_Cleanup(benchmark::State & state)
+{
+  const auto n = static_cast<size_t>(state.range(0));
+  visualization_msgs__msg__MarkerArray src;
+  visualization_msgs__msg__MarkerArray__init(&src);
+  visualization_msgs__msg__Marker__Sequence__init(&src.markers, n);
+  for (size_t i = 0; i < n; ++i) {
+    fill_c_marker(&src.markers.data[i], static_cast<int>(i));
+  }
+
+  std::vector<char> raw(kBufferSize);
+  eprosima::fastcdr::FastBuffer buffer(raw.data(), raw.size());
+  {
+    eprosima::fastcdr::Cdr cdr(buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+      eprosima::fastcdr::CdrVersion::XCDRv1);
+    cdr_serialize_visualization_msgs__msg__MarkerArray(&src, cdr);
+  }
+  visualization_msgs__msg__MarkerArray__fini(&src);
+
+  for (auto _ : state) {
+    visualization_msgs__msg__MarkerArray dst;
+    visualization_msgs__msg__MarkerArray__init(&dst);
+    eprosima::fastcdr::Cdr cdr(buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+      eprosima::fastcdr::CdrVersion::XCDRv1);
+    cdr_deserialize_visualization_msgs__msg__MarkerArray(cdr, &dst);
+    benchmark::DoNotOptimize(dst);
+    benchmark::ClobberMemory();
+    visualization_msgs__msg__MarkerArray__fini(&dst);
+  }
+  state.SetLabel(std::to_string(n) + " markers");
+}
+
 BENCHMARK(BM_Serialize_MarkerArray_N_C)->Name("Serialize/MarkerArray_N/c")
 ->Arg(16)->Arg(100)->Arg(1000)->MinTime(0.5);
 BENCHMARK(BM_Deserialize_MarkerArray_N_C)->Name("Deserialize/MarkerArray_N/c")
+->Arg(16)->Arg(100)->Arg(1000)->MinTime(0.5);
+BENCHMARK(BM_Deserialize_MarkerArray_N_C_Cleanup)->Name("Deserialize/MarkerArray_N/c_cleanup")
 ->Arg(16)->Arg(100)->Arg(1000)->MinTime(0.5);
 
 BENCHMARK_MAIN();

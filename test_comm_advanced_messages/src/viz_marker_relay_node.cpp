@@ -1,6 +1,7 @@
 #include <functional>
 #include <memory>
 #include <chrono>
+#include <thread>
 
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -12,7 +13,8 @@ public:
   : rclcpp::Node("viz_marker_relay"),
     messages_sent_(0),
     messages_received_(0),
-    total_publish_time_ns_(0)
+    total_publish_time_ns_(0),
+    start_time_(std::chrono::steady_clock::now())
   {
     publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
       "viz_marker_test_recv", rclcpp::SystemDefaultsQoS());
@@ -48,12 +50,17 @@ private:
   
   void report_stats()
   {
-    double avg_publish_time_ms = messages_sent_ > 0 ? 
+    double avg_publish_time_ms = messages_sent_ > 0 ?
       (static_cast<double>(total_publish_time_ns_) / messages_sent_ / 1e6) : 0.0;
-    
-    RCLCPP_INFO(get_logger(), 
-      "Stats - Sent: %zu, Received: %zu, Avg Publish Time: %.3f ms",
-      messages_sent_, messages_received_, avg_publish_time_ms);
+
+    auto now = std::chrono::steady_clock::now();
+    double elapsed_sec = std::chrono::duration<double>(now - start_time_).count();
+    double msgs_per_sec_sent = elapsed_sec > 0 ? messages_sent_ / elapsed_sec : 0.0;
+    double msgs_per_sec_recv = elapsed_sec > 0 ? messages_received_ / elapsed_sec : 0.0;
+
+    RCLCPP_INFO(get_logger(),
+      "Stats - Sent: %zu (%.1f msg/s), Received: %zu (%.1f msg/s), Avg Publish Time: %.3f ms",
+      messages_sent_, msgs_per_sec_sent, messages_received_, msgs_per_sec_recv, avg_publish_time_ms);
   }
 
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_;
@@ -64,6 +71,7 @@ private:
   size_t messages_sent_;
   size_t messages_received_;
   uint64_t total_publish_time_ns_;
+  std::chrono::steady_clock::time_point start_time_;
 };
 
 int main(int argc, char ** argv)
